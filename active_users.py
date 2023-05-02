@@ -5,6 +5,7 @@ import logging
 import argparse
 import json
 
+logger = logging.getLogger()
 
 def create_parser() -> argparse.ArgumentParser:
     '''
@@ -21,6 +22,7 @@ def create_parser() -> argparse.ArgumentParser:
 
     login.add_argument('-t', '--token', help="Provide an admin-token to access the Matrix API.")
     login.add_argument('-l', '--login', help="Provide a username and password to be used in authentication process.", nargs=2, type=str)
+    login.add_argument('-d', '--dummy', help="Makes a dummy call to the API login; API will return a dummy access token", action='store_true', default=False)
 
     parser.add_argument('-s', '--matrix_server', help="Provide the home address of your matrix matrix_server.", required=True)
     parser.add_argument('-a', '--ascending', help="List the accounts in ascending order => most recently online first", default=False, action='store_true', required=False)
@@ -31,17 +33,8 @@ def create_parser() -> argparse.ArgumentParser:
 
     return parser
 
-
-def get_users() -> rq.Response:
-    '''
-    uses requests to call Matrix API to get a list of registered user objects.
-    Status code of the returning Response object will determine success.
-        Input: None
-        Return: request.Response
-    '''
-
-    url = f"https://{matrix_server}/_synapse/admin/v2/users"
-    response = rq.get(url=url, headers=headers)
+def make_request_call(request_method: str, url: str, headers: dict) -> dict:
+    response = rq.request(method=request_method, url=url, headers=headers)
 
     if response.status_code != 200:
         logger.error("Fehler: Die API-Anfrage ist fehlgeschlagen.\n" +
@@ -53,7 +46,20 @@ def get_users() -> rq.Response:
     return response.json()
 
 
-def login(_login_type: str, _usr: str, _pwd: str, _token: str) -> str:
+def get_users(matrix_server: str, headers: dict) -> dict:
+    '''
+    Uses requests to call Matrix API to get a list of registered user objects.
+        Input:  str: matrix_server
+                dict: headers
+        Return: dict
+    '''
+
+    url = f"https://{matrix_server}/_synapse/admin/v2/users"
+
+    return make_request_call('GET', url, headers)
+
+
+def get_access_token(_login_type: str, matrix_server: str, **kwargs) -> str:
     '''
     Takes a type and (username, password) or (token) to retrieve an access token via API call.
     _login_type is the login method. Has to be retrieved via a GET call to the login page of the matrix server
@@ -67,7 +73,13 @@ def login(_login_type: str, _usr: str, _pwd: str, _token: str) -> str:
         Return: str: access_token
         Failure: if token call not successful, then exit program.
     '''
-    # Listing the registered users is not possible without admin access
+    # Listing the registered users is only possible with admin access
+
+    print(kwargs)
+
+    _usr = kwargs.get('usr', None)
+    _pwd = kwargs.get('pwd', None)
+    _token = kwargs.get('token', None)
 
     url = f"https://{matrix_server}/_matrix/client/r0/login"
 
@@ -77,56 +89,45 @@ def login(_login_type: str, _usr: str, _pwd: str, _token: str) -> str:
         case "m.login.token":
             d = {'type': _login_type, 'token': _token}
         case "m.login.dummy":
-            pass  # necessity not gaugable yet
+            d = {'type' : _login_type}
         case _:
             logger.error(f"Fehler: Die angegebene Login Variante ist nicht gültig: {_login_type}\n" +
                          "Mögliche Loginvarianten sind: " + str(['m.login.password', 'm.login.token', 'm.login.dummy']))
             exit(1)
 
     d = json.dumps(d)
-    response = rq.post(url=url, data=d)
 
-    if response.status_code != 200:
-        logger.error("Fehler: Die API-Anfrage ist fehlgeschlagen.\n" +
-                     f"Exit Code: {response.status_code}\n" +
-                     f"JSON response: {response.json()}\n" +
-                     f"URL: {url}")
-        exit(1)
-
-    return response.json()["access_token"]
+    return make_request_call('POST', url, d)['access_token']
 
 
-def create_request_header(token: str) -> dict:
+def create_request_header(token: str) -> str:
     '''
-    Takes a token string and creates a header dictionary
+    Takes a token string and creates a header dictionary as JSON string
     Scheme: {Authorization: Bearer <token>}
         Input: str
-        Return: dict
+        Return: str
     '''
 
-    headers = {"Authorization": f"Bearer {token}"}
+    headers = json.dumps({"Authorization": f"Bearer {token}"})
     return headers
 
 
 def main() -> None:
-    global matrix_server
-    global headers
-    global logger
-
-    logger = logging.getLogger()
-
     args = create_parser().parse_args()
     matrix_server = args.matrix_server
 
-    if args.login:  # overwrite args.token with token gained from usr_pwd login
-        args.token = login(_login_type="m.login.password", _usr=args.login[0], _pwd=args.login[1])
+    if args.dummy:
+        args.token = get_access_token(_login_type="m.login.dummy", matrix_server=matrix_server)
+    elif args.login:
+        args.token = get_access_token(_login_type="m.login.password", matrix_server=matrix_server, usr=args.login[0], pwd=args.login[1])
     else:
-        args.token = login(_login_type="m.login.token", token=args.token)
+        args.token = get_access_token(_login_type="m.login.token", matrix_server=matrix_server, token=args.token)
 
     headers = create_request_header(args.token)
+    print(headers)
 
-    collected_users = json.load(get_users().json())
-    accounts = [account for account in collected_users]
+    matrix_users = get_users(matrix_server, headers)
+    accounts = list(matrix_users)
 
     # sorts the accounts by the last_active_ago timestamps, default: least recently online to most recently online
     accounts.sort(key=lambda x: int(x.last_active_ago), reverse=(not args.ascending))
@@ -135,6 +136,3 @@ def main() -> None:
 
 if __name__ == "__main__":
     main()
-
-
-# admin_param = f"?admin={is_admin}".lower()  # lower(), bc string-rep. of python bools are usually capitalized
