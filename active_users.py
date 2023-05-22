@@ -46,21 +46,34 @@ def create_parser() -> argparse.ArgumentParser:
     return parser
 
 
-def make_request_call(request_method: str, url: str, data: dict) -> dict:
+def make_request_call(request_method: str, url: str, **kwargs) -> dict:
     """
     Incapsualtes a common rq.request() call by adding a status code check and
     error messages
     :param request_method HTTP verb
     :param url URL to call on
-    :param data python dictionary containing
+    :param data python dictionary containing information to be send in the request-body
+    :param headers python dict containing to-be-transmitted headers
     """
+
+    '''
+    Dev note: This function exists to encapsulate the request call with a status_code check.
+    I am not satisfied by this way of basically using a wrapper function bc ideally id have to double-parse
+    all the kwargs of rq.request.
+    Is there a way to check the status_code without having to manually do that after each request call?
+    '''
+
+    data = kwargs.get('data', None)
+    headers = kwargs.get('headers', None)
+
     logger.debug(request_method)
     logger.debug(url)
     logger.debug(data)
 
     response = rq.request(method=request_method,
                           url=url,
-                          data=json.dumps(data))
+                          data=json.dumps(data),
+                          headers=headers)
 
     if response.status_code != 200:
         logger.error("Fehler: Die API-Anfrage ist fehlgeschlagen.\n" +
@@ -82,7 +95,7 @@ def get_users(matrix_server: str, headers: dict) -> dict:
 
     url = f"https://{matrix_server}/_synapse/admin/v2/users"
 
-    return make_request_call('GET', url, headers)
+    return make_request_call('GET', url, headers=headers)
 
 
 def get_access_token(_login_type: str, matrix_server: str, **kwargs) -> str:
@@ -126,7 +139,7 @@ def get_access_token(_login_type: str, matrix_server: str, **kwargs) -> str:
 
     logger.debug(d)
 
-    return make_request_call('POST', url, d)['access_token']
+    return make_request_call('POST', url, data=d)['access_token']
 
 
 def create_request_header(token: str) -> dict:
