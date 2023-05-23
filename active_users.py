@@ -6,6 +6,7 @@ import argparse
 import json
 
 logger = logging.getLogger()
+logger.addHandler(logging.StreamHandler())
 
 
 def create_parser() -> argparse.ArgumentParser:
@@ -57,29 +58,43 @@ def make_request_call(request_method: str, url: str, **kwargs) -> dict:
     """
 
     '''
-    Dev note: This function exists to encapsulate the request call with a status_code check.
-    I am not satisfied by this way of basically using a wrapper function bc ideally id have to double-parse
+    Dev note:
+    This function exists to encapsulate the request call with a status_code check.
+    I am not satisfied by this way of basically using a wrapper function bc ideally I'd have to double-parse
     all the kwargs of rq.request.
     Is there a way to check the status_code without having to manually do that after each request call?
+    (I'm thinking of some kind of overwrite/overload)
     '''
 
     data = kwargs.get('data', None)
     headers = kwargs.get('headers', None)
 
-    logger.debug(request_method)
-    logger.debug(url)
-    logger.debug(data)
+    logger.debug("HTTP method:\t\t" + str(request_method))
+    logger.debug("URL to call:\t\t" + str(url))
+    logger.debug("Data in request body:\t" + str(data))
+    logger.debug("Request headers:\t" + str(headers))
 
+    logger.debug("\n")
+
+    # Dev note:
+    # Fun fact: requests apparently uses logging for debug purposes.
+    # Creating a logging object and setting its level to DEBUG will also
+    # affect request debug output
     response = rq.request(method=request_method,
                           url=url,
-                          data=json.dumps(data),
+                          data=json.dumps(data),  # rq.request should be able to serialize a dict into JSON
+                                                  # but apparently the API cannot handle that:
+                                                  # {'errcode': 'M_NOT_JSON', 'error': 'Content not JSON.'}
+                                                  # That's why I use json.dumps() here.
                           headers=headers)
 
+    logger.debug("\n")
+
     if response.status_code != 200:
-        logger.error("Fehler: Die API-Anfrage ist fehlgeschlagen.\n" +
-                     f"Exit Code: {response.status_code}\n" +
-                     f"JSON response: {response.json()}\n" +
-                     f"URL: {url}")
+        logger.error("Fehler:\t\tDie API-Anfrage ist fehlgeschlagen.\n" +
+                     f"Exit Code:\t{response.status_code}\n" +
+                     f"JSON response:\t{response.json()}\n" +
+                     f"URL:\t\t{url}")
         exit(1)
 
     return response.json()
@@ -94,6 +109,7 @@ def get_users(matrix_server: str, headers: dict) -> dict:
     """
 
     url = f"https://{matrix_server}/_synapse/admin/v2/users"
+    logger.debug("get_users URL:\t\t" + str(url))
 
     return make_request_call('GET', url, headers=headers)
 
@@ -110,34 +126,41 @@ def get_access_token(_login_type: str, matrix_server: str, **kwargs) -> str:
                 str: _pwd
                 str: _token
         Return: str: access_token
-        Failure: if token call not successful, then exit program.
+        Failure: if token call not successful, then exit program with err_code = 1.
     """
     # Listing the registered users is only possible with admin access
 
-    logger.debug("get_access_token kwargs:\n" + str(kwargs))
+    logger.debug("get_access_token kwargs " + str(kwargs))
 
     _usr = kwargs.get('usr', None)
     _pwd = kwargs.get('pwd', None)
     _token = kwargs.get('token', None)
 
     url = f"https://{matrix_server}/_matrix/client/r0/login"
-    logger.debug("login url: " + str(url))
+    logger.debug("login url:\t\t" + str(url))
 
+    # dev note: I tried to put the login types into an array and match-case with that,
+    # but matching with a variable is not that trivial in Python.
+    # The API is limited to three login types, therefore I think the amount of
+    # hard-code is excusable.
     match _login_type:
         case "m.login.password":
             d = {'type': _login_type, 'user': _usr, 'password': _pwd}
         case "m.login.token":
             d = {'type': _login_type, 'token': _token}
+
+        # Has not sufficently been tested bc documentation suggest that a dummy-login will only pretend to return a valid token.
+        # Dummy token won't be usable for any authentication.
         case "m.login.dummy":
             d = {'type': _login_type}
+
         case _:
             logger.error(
                 f"Fehler: Die angegebene Login Variante ist nicht gültig: {_login_type}\n" +
-                "Mögliche Loginvarianten sind: " + str(
-                    ['m.login.password', 'm.login.token', 'm.login.dummy']))
+                "Mögliche Loginvarianten sind: " + str(['m.login.password', 'm.login.token', 'm.login.dummy']))
             exit(1)
 
-    logger.debug(d)
+    logger.debug("login body:\t\t" + str(d))
 
     return make_request_call('POST', url, data=d)['access_token']
 
@@ -160,24 +183,28 @@ def main() -> None:
     matrix_server = args.matrix_server
 
     if args.debug:
-        logger.setLevel('DEBUG')
+        logger.setLevel(logging.DEBUG)
 
-    logger.debug("args:\n" + str(args))
-    logger.debug("Server: " + str(matrix_server))
+    logger.debug("parsed args:\t\t" + str(args))
+    logger.debug("Server:\t\t\t" + str(matrix_server))
 
     if args.login:
         args.token = get_access_token(_login_type="m.login.password",
                                       matrix_server=matrix_server,
                                       usr=args.login[0], pwd=args.login[1])
     else:
+        # Dev note:
+        # requesting a token via API will return a different one than the one you could
+        # get via client>Settings>Help:Advanced
+        # That's why I decided to request a token, even if one has been specified by the user
         args.token = get_access_token(_login_type="m.login.token",
                                       matrix_server=matrix_server,
                                       token=args.token)
 
-    print("processed token: " + str(args.token))
+    logger.debug("processed token:\t" + str(args.token))
 
     headers = create_request_header(args.token)
-    print("created data:\n" + str(headers))
+    logger.debug("Created headers:\t" + str(headers))
 
     matrix_users = get_users(matrix_server, headers)
     accounts = list(matrix_users)
