@@ -192,14 +192,6 @@ def main() -> None:
         args.token = get_access_token(_login_type="m.login.password",
                                       matrix_server=matrix_server,
                                       usr=args.login[0], pwd=args.login[1])
-    else:
-        # Dev note:
-        # requesting a token via API will return a different one than the one you could
-        # get via client>Settings>Help:Advanced
-        # That's why I decided to request a token, even if one has been specified by the user
-        args.token = get_access_token(_login_type="m.login.token",
-                                      matrix_server=matrix_server,
-                                      token=args.token)
 
     logger.debug("processed token:\t" + str(args.token))
 
