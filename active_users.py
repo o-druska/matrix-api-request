@@ -43,10 +43,6 @@ def create_parser() -> argparse.ArgumentParser:
                              "output",
                         default=False, action='store_true', required=False)
 
-    # not sure how the API version is important to our efforts.
-    # the current versions are hardcoded based on examples I found on the Matrix API documentation.
-    # parser.add_argument('-v', '--matrix_version', help="Specify the Matrix API version you wanna access", required=False)
-
     return parser
 
 
@@ -144,7 +140,6 @@ def create_request_header(token: str) -> dict:
 
 def main() -> None:
     args = create_parser().parse_args()
-    matrix_server = args.matrix_server
 
     if args.debug:
         logger.setLevel(logging.DEBUG)
