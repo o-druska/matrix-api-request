@@ -69,6 +69,7 @@ def make_request_call(request_method: str, url: str, **kwargs) -> dict:
     data = kwargs.get('data', None)
     headers = kwargs.get('headers', None)
 
+    logger.debug("\n")
     logger.debug("HTTP method:\t\t" + str(request_method))
     logger.debug("URL to call:\t\t" + str(url))
     logger.debug("Data in request body:\t" + str(data))
@@ -137,7 +138,7 @@ def get_access_token(_login_type: str, matrix_server: str, **kwargs) -> str:
     _token = kwargs.get('token', None)
 
     url = f"https://{matrix_server}/_matrix/client/r0/login"
-    logger.debug("login url:\t\t" + str(url))
+    logger.debug("login URL:\t\t" + str(url))
 
     # dev note: I tried to put the login types into an array and match-case with that,
     # but matching with a variable is not that trivial in Python.
