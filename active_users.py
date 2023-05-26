@@ -50,50 +50,17 @@ def create_parser() -> argparse.ArgumentParser:
     return parser
 
 
-def make_request_call(request_method: str, url: str, **kwargs) -> dict:
+def check_response(response: rq.Response) -> None:
     """
-    Incapsualtes a common rq.request() call by adding a status code check and
-    error messages
-    :param request_method HTTP verb
-    :param url URL to call on
-    :param data python dictionary containing information to be send in the request-body
-    :param headers python dict containing to-be-transmitted headers
+    This function is a wrapper to check the status_code of
+    the given rq.Response object.
+
+    Has no special prupose except decluttering functions,
+    which make calls via requests.
+        Input:   reponse: rq.Response
+        Return:  None
+        Failure: exit program
     """
-
-    '''
-    Dev note:
-    This function exists to encapsulate the request call with a status_code check.
-    I am not satisfied by this way of basically using a wrapper function bc ideally I'd have to double-parse
-    all the kwargs of rq.request.
-    Is there a way to check the status_code without having to manually do that after each request call?
-    (I'm thinking of some kind of overwrite/overload)
-    '''
-
-    data = kwargs.get('data', None)
-    headers = kwargs.get('headers', None)
-
-    logger.debug("\n")
-    logger.debug("HTTP method:\t\t" + str(request_method))
-    logger.debug("URL to call:\t\t" + str(url))
-    logger.debug("Data in request body:\t" + str(data))
-    logger.debug("Request headers:\t" + str(headers))
-
-    logger.debug("\n")
-
-    # Dev note:
-    # Fun fact: requests apparently uses logging for debug purposes.
-    # Creating a logging object and setting its level to DEBUG will also
-    # affect request debug output
-    response = rq.request(method=request_method,
-                          url=url,
-                          data=json.dumps(data),  # rq.request should be able to serialize a dict into JSON
-                                                  # but apparently the API cannot handle that:
-                                                  # {'errcode': 'M_NOT_JSON', 'error': 'Content not JSON.'}
-                                                  # That's why I use json.dumps() here.
-                          headers=headers)
-
-    logger.debug("\n")
-
     if response.status_code != 200:
         logger.warning("Warning:\tThe API request failed..\n" +
                      f"status code:\t{response.status_code}\n" +
@@ -101,7 +68,6 @@ def make_request_call(request_method: str, url: str, **kwargs) -> dict:
                      f"URL:\t\t{response.url}")
         exit(1)
 
-    return response.json()
 
 
 def get_users(matrix_server: str, headers: dict) -> dict:
