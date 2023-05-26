@@ -69,20 +69,28 @@ def check_response(response: rq.Response) -> None:
         exit(1)
 
 
-
-def get_users(matrix_server: str, headers: dict) -> dict:
+def get_users(server: str, headers: dict) -> dict:
     """
     Uses requests to call Matrix API to get a list of registered user objects.
-        Input:  str: matrix_server
+        Input:  str: server
                 dict: data
         Return: dict
     """
 
-    url = f"https://{matrix_server}/_synapse/admin/v2/users"
+    url = f"https://{server}/_synapse/admin/v2/users"
     logger.debug("get_users URL:\t\t" + str(url))
 
-    return make_request_call('GET', url, headers=headers)
+    # Dev note:
+    # Fun fact: requests apparently uses logging for debug purposes.
+    # Creating a logging object and setting its level to DEBUG will also
+    # affect request debug output
+    logger.debug("\n")
+    response = rq.get(url=url,headers=headers)
+    logger.debug("\n")
 
+    check_response(response)
+
+    return response.json()
 
 def get_access_token(_login_type: str, matrix_server: str, **kwargs) -> str:
     """
@@ -119,20 +127,19 @@ def get_access_token(_login_type: str, matrix_server: str, **kwargs) -> str:
         case "m.login.token":
             d = {'type': _login_type, 'token': _token}
 
-        # Has not sufficently been tested bc documentation suggest that a dummy-login will only pretend to return a valid token.
-        # Dummy token won't be usable for any authentication.
-        case "m.login.dummy":
-            d = {'type': _login_type}
+    logger.debug("\n")
+    response = rq.post(url=url,
+                      data=json.dumps(body))    # rq.request should be able to serialize a dict into JSON
+                                                # but apparently the API cannot handle that:
+                                                # {'errcode': 'M_NOT_JSON', 'error': 'Content not JSON.'}
+                                                # That's why I use json.dumps() here.
+    logger.debug("\n")
 
-        case _:
-            logger.error(
-                f"Fehler: Die angegebene Login Variante ist nicht gültig: {_login_type}\n" +
-                "Mögliche Loginvarianten sind: " + str(['m.login.password', 'm.login.token', 'm.login.dummy']))
-            exit(1)
+    check_response(response)
 
     logger.debug("login body:\t\t" + str(d))
 
-    return make_request_call('POST', url, data=d)['access_token']
+    return response.json()['access_token']
 
 
 def create_request_header(token: str) -> dict:
