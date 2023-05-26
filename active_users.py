@@ -16,7 +16,7 @@ def create_parser() -> argparse.ArgumentParser:
         Return: argparse.ArgumentParser
     """
     parser = argparse.ArgumentParser(
-        description="This script ist supposed to retrieve information about the usage of Matrix accounts.\n" +
+        description="This script is supposed to retrieve information about the usage of Matrix accounts.\n" +
                     "Running this script could be useful to find abandoned accounts.")
 
     # User has to sepcify exactly one argument, either an access token
@@ -24,14 +24,17 @@ def create_parser() -> argparse.ArgumentParser:
     login = parser.add_mutually_exclusive_group(required=True)
 
     login.add_argument('-t', '--token',
-                       help="Provide an admin-token to access the Matrix API.")
+                       help="Provide an admin-token to access the Matrix API. " +
+                       "--token and --login are mutually exclusive.",
+                       type=str)
     login.add_argument('-l', '--login',
-                       help="Provide a username and password to be used in authentication process.",
+                       help="Provide a username and password to be used in authentication process. " +
+                       "--token and --login are mutually exclusive.",
                        nargs=2, type=str)
 
-    parser.add_argument('-s', '--matrix_server',
-                        help="Provide the home address of your matrix matrix_server.",
-                        required=True)
+    parser.add_argument('-s', '--server',
+                        help="Provide the home address of your matrix server.",
+                        required=True, type=str)
     parser.add_argument('-a', '--ascending',
                         help="List the accounts in ascending order => most recently online first",
                         default=False, action='store_true', required=False)
@@ -92,10 +95,10 @@ def make_request_call(request_method: str, url: str, **kwargs) -> dict:
     logger.debug("\n")
 
     if response.status_code != 200:
-        logger.error("Fehler:\t\tDie API-Anfrage ist fehlgeschlagen.\n" +
-                     f"Exit Code:\t{response.status_code}\n" +
+        logger.warning("Warning:\tThe API request failed..\n" +
+                     f"status code:\t{response.status_code}\n" +
                      f"JSON response:\t{response.json()}\n" +
-                     f"URL:\t\t{url}")
+                     f"URL:\t\t{response.url}")
         exit(1)
 
     return response.json()
@@ -170,8 +173,8 @@ def create_request_header(token: str) -> dict:
     """
     Takes a token string and creates a header dictionary as JSON string
     Scheme: {Authorization: Bearer <token>}
-        Input: str
-        Return: str
+        Input: token: str
+        Return: dict[str, str]
     """
 
     headers = {"Authorization": f"Bearer {token}"}
@@ -187,7 +190,7 @@ def main() -> None:
         logger.setLevel(logging.DEBUG)
 
     logger.debug("parsed args:\t\t" + str(args))
-    logger.debug("Server:\t\t\t" + str(matrix_server))
+    logger.debug("Server:\t\t\t" + str(args.server))
 
     if args.login:
         args.token = get_access_token(_login_type="m.login.password",
@@ -199,8 +202,11 @@ def main() -> None:
     headers = create_request_header(args.token)
     logger.debug("Created headers:\t" + str(headers))
 
-    matrix_users = get_users(matrix_server, headers)
+    matrix_users = get_users(args.server, headers)
+
+    logger.debug(matrix_users)
     accounts = list(matrix_users)
+    logger.debug(accounts)
 
     # sorts the accounts by the last_active_ago timestamps, default: least recently online to most recently online
     accounts.sort(key=lambda x: int(x.last_active_ago),
