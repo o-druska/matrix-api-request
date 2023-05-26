@@ -92,40 +92,27 @@ def get_users(server: str, headers: dict) -> dict:
 
     return response.json()
 
-def get_access_token(_login_type: str, matrix_server: str, **kwargs) -> str:
+
+def get_access_token(server: str, username: str, password: str) -> str:
     """
     Takes a type and (username, password) or (token) to retrieve an access token via API call.
-    _login_type is the login method. Has to be retrieved via a GET call to the login page of the matrix server
-    m.login.password -> usr_pwd login scheme (will use usr_pwd to login)
-    m.login.token -> login via access token (will use token to login)
-    m.login.dummy -> API does not verify authenticity (debug purposes)
-        Input:  str: _login_type
-                str: _usr
-                str: _pwd
-                str: _token
+    _login_type is the login method. The API provides login via token too, but that did
+    not work as expected and usr_pwd login is totally sufficient for this purpose.
+    m.login.password will therefore be hardcoded in here.
+        Input:  
+                str: server
+                str: username
+                str: password
         Return: str: access_token
         Failure: if token call not successful, then exit program with err_code = 1.
     """
     # Listing the registered users is only possible with admin access
 
-    logger.debug("get_access_token kwargs " + str(kwargs))
-
-    _usr = kwargs.get('usr', None)
-    _pwd = kwargs.get('pwd', None)
-    _token = kwargs.get('token', None)
-
-    url = f"https://{matrix_server}/_matrix/client/r0/login"
+    url = f"https://{server}/_matrix/client/r0/login"
     logger.debug("login URL:\t\t" + str(url))
 
-    # dev note: I tried to put the login types into an array and match-case with that,
-    # but matching with a variable is not that trivial in Python.
-    # The API is limited to three login types, therefore I think the amount of
-    # hard-code is excusable.
-    match _login_type:
-        case "m.login.password":
-            d = {'type': _login_type, 'user': _usr, 'password': _pwd}
-        case "m.login.token":
-            d = {'type': _login_type, 'token': _token}
+    body = {'type': "m.login.password", 'user': username, 'password': password}
+    logger.debug("login body:\t\t" + str(body))
 
     logger.debug("\n")
     response = rq.post(url=url,
@@ -137,7 +124,7 @@ def get_access_token(_login_type: str, matrix_server: str, **kwargs) -> str:
 
     check_response(response)
 
-    logger.debug("login body:\t\t" + str(d))
+    # TODO: check, if returning dictionary looks like we expect it to.
 
     return response.json()['access_token']
 
@@ -166,9 +153,9 @@ def main() -> None:
     logger.debug("Server:\t\t\t" + str(args.server))
 
     if args.login:
-        args.token = get_access_token(_login_type="m.login.password",
-                                      matrix_server=matrix_server,
-                                      usr=args.login[0], pwd=args.login[1])
+        args.token = get_access_token(server=args.server,
+                                      username=args.login[0],
+                                      password=args.login[1])
 
     logger.debug("processed token:\t" + str(args.token))
 
