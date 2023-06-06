@@ -4,6 +4,7 @@ import requests as rq
 import logging
 import argparse
 import json
+from datetime import datetime as dt
 
 logger = logging.getLogger()
 logger.addHandler(logging.StreamHandler())
@@ -212,14 +213,18 @@ def main() -> None:
 
     matrix_users = get_users(args.server, headers)
 
-    logger.debug(matrix_users)
-    accounts = list(matrix_users)
-    logger.debug(accounts)
+    # sorts the accounts by the last_active_ago timestamps
+    # default: least recently online to most recently online
+    matrix_users.sort(key=lambda x: x.get('last_seen_ts', 0))
 
-    # sorts the accounts by the last_active_ago timestamps, default: least recently online to most recently online
-    accounts.sort(key=lambda x: int(x.last_active_ago),
-                  reverse=(not args.ascending))
-    print(accounts)
+    # This is the actual output part
+    for user in matrix_users:
+        username = user.get('name', None)
+
+        # Division by 1000 bc timestamp is given in miliseconds but datetime works with seconds
+        datestr = dt.utcfromtimestamp(user.get('last_seen_ts', 0) / 1000).strftime('%Y-%m-%d %H:%M:%S')
+
+        print("{0:40} last seen on\t{1:19} UTC".format(username, datestr))
 
 
 if __name__ == "__main__":
