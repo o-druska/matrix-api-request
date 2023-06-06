@@ -127,8 +127,10 @@ def get_users(server: str, headers: dict) -> dict:
 
         if (not device_dict):
             logger.warning("Encountered user with missing session information.\n" +
-                           f"User:\n{json.dumps(user, indent=4)}\n" +
-                           f"Devices:\n{json.dumps(devices_response, indent=4)}\n")
+                           f"User: {user.get('name', 'NO_NAME')}\n")
+
+            logger.debug(f"user JSON:\n{json.dumps(user, indent=4)}\n" +
+                         f"Devices JSON:\n{json.dumps(devices_response, indent=4)}\n")
             continue
 
         # find most recent client activity for given user's devices
@@ -222,6 +224,14 @@ def main() -> None:
     matrix_users.sort(key=lambda x: x.get('last_seen_ts', 0))
 
     # This is the actual output part
+    header = "{0:40} last seen on\t{1:19} UTC".format("<Username>", "YYYY-MM-DD HH-MM-SS")
+    print(header)
+
+    line = ""
+    for _ in header:
+        line += '-'
+    print(line)
+
     for user in matrix_users:
         username = user.get('name', None)
 
