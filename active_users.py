@@ -145,10 +145,11 @@ def get_users(server: str, headers: dict) -> dict:
 
 def get_access_token(server: str, username: str, password: str) -> str:
     """
-    Takes a type and (username, password) or (token) to retrieve an access token via API call.
-    _login_type is the login method. The API provides login via token too, but that did
-    not work as expected and usr_pwd login is totally sufficient for this purpose.
-    m.login.password will therefore be hardcoded in here.
+    Takes a matrix homeserver and (username, password) to retrieve an access token via API call.
+    The API provides login via token too, but that did not work as expected
+    and usr_pwd login is totally sufficient for this purpose.
+    m.login.password presents the login method to the API
+    and will therefore be hardcoded in here.
         Input:  
                 str: server
                 str: username
@@ -176,7 +177,10 @@ def get_access_token(server: str, username: str, password: str) -> str:
 
     # TODO: check, if returning dictionary looks like we expect it to.
 
-    return response.json()['access_token']
+    try:
+        return response.json()['access_token']
+    except KeyError as k:
+        logger.error(k)
 
 
 def create_request_header(token: str) -> dict:
