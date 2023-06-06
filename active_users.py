@@ -36,7 +36,9 @@ def create_parser() -> argparse.ArgumentParser:
                         help="Provide the home address of your matrix server.",
                         required=True, type=str)
     parser.add_argument('-a', '--ascending',
-                        help="List the accounts in ascending order => most recently online first",
+                        help="List the accounts in descending order => most recently online first. " +
+                        "The sorting criteria is a timestamp corresponding to a date in milliseconds after the unix epoch. " +
+                        "Therefore the higher the timestamp the more recent the activity",
                         default=False, action='store_true', required=False)
     parser.add_argument('-d', '--debug',
                         help="Debug mode; will print more verbose debug "
@@ -67,7 +69,10 @@ def check_response(response: rq.Response) -> None:
 
 def get_users(server: str, headers: dict) -> dict:
     """
-    Uses requests to call Matrix API to get a list of registered user objects.
+    Uses requests to call Matrix API to get a list of registered user objects
+    including a last-seen timestamp in unix-milliseconds.
+    The timestamp marks the date and time after the unix epoch on which
+    the session has been most recently active.
         Input:  str: server
                 dict: data
         Return: dict
