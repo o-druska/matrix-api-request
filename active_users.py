@@ -91,7 +91,55 @@ def get_users(server: str, headers: dict) -> dict:
 
     check_response(response)
 
-    return response.json()
+    user_dict = response.json()
+
+    # TODO: check if dictionary looks as expected
+
+    # TODO: users output is paginated: while next_token: call again with ?from=<next_token>
+    # Dev note: deactivated for debug purposes bc query parameter &from does
+    # not work as intended yet
+    '''
+    while user_dict.get('next_token', None):
+        next_token = user_dict['next_token']
+        url = f"https://{server}/_synapse/admin/v2/users&from={next_token}"
+
+        logger.debug("\n")
+        response = rq.get(url=url,headers=headers)
+        logger.debug("\n")
+
+        check_response(response)
+
+        next_dict = response.json()
+
+        # ** unpacks a dictionary similar to how * unpacks an iterable
+        # merge the new users into the existing dict
+        user_dict['users'] = { **user_dict['users'] , **next_dict['users'] }
+    '''
+
+    for user in user_dict['users']: # get device information for each user/account
+        url = f"https://{server}/_synapse/admin/v2/users/{user['name']}/devices"
+        response = rq.get(url=url, headers=headers)
+        check_response(response)
+
+        devices_response = response.json()
+        device_dict = devices_response['devices']
+
+        if (not device_dict):
+            logger.warning("Encountered user with missing session information.\n" +
+                           f"User:\n{json.dumps(user, indent=4)}\n" +
+                           f"Devices:\n{json.dumps(devices_response, indent=4)}\n")
+            continue
+
+        # find most recent client activity for given user's devices
+        timestamps = [device['last_seen_ts'] for device in device_dict if device['last_seen_ts'] is not None]
+        most_recent_ts = max(timestamps)
+
+        # add a users most recent time stamp to their dictionary
+        user['last_seen_ts'] = most_recent_ts
+    
+    logger.debug(user_dict.keys())
+
+    return user_dict['users']
 
 
 def get_access_token(server: str, username: str, password: str) -> str:
