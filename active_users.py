@@ -124,20 +124,25 @@ def get_users(server: str, headers: dict) -> dict:
         # user_resp['users'] is a list of dictionaries. One dict for each user.
         users = [ *users , *user_resp['users'] ]
 
-    for user in user_dict['users']: # get device information for each user/account
+    user_resp['users'] = users
+
+    # get device information for each user in users_resp
+    for user in user_resp['users']:
         url = f"https://{server}/_synapse/admin/v2/users/{user['name']}/devices"
+
         response = rq.get(url=url, headers=headers)
+        logger.debug("")
+
         check_response(response)
 
-        devices_response = response.json()
-        device_dict = devices_response['devices']
+        devices_resp = response.json()
 
-        if (not device_dict):
-            logger.warning("Encountered user with missing session information.\n" +
-                           f"User: {user.get('name', 'NO_NAME')}\n")
-
+        device_dict = devices_resp.get('devices', None)
+        if not device_dict:
+            logger.warning("Encountered user with missing device information.\n" +
+                           f"User: {user.get('name', 'NO_NAME')}")
             logger.debug(f"user JSON:\n{json.dumps(user, indent=4)}\n" +
-                         f"Devices JSON:\n{json.dumps(devices_response, indent=4)}\n")
+                         f"Devices JSON:\n{json.dumps(devices_resp, indent=4)}")
             continue
 
         # find most recent client activity for given user's devices
