@@ -67,7 +67,7 @@ def check_response(response: rq.Response) -> None:
         exit(1)
 
 
-def get_users(server: str, headers: dict) -> dict:
+def get_users(server: str, headers: dict) -> list[dict]:
     """
     Uses requests to call Matrix API to get a list of registered user objects
     including a last-seen timestamp in unix-milliseconds.
