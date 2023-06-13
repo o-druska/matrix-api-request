@@ -22,13 +22,13 @@ def create_parser() -> argparse.ArgumentParser:
 
     # User has to sepcify exactly one argument, either an access token
     # XOR username and password to retrieve a token via this script
-    login = parser.add_mutually_exclusive_group(required=True)
+    auth = parser.add_mutually_exclusive_group(required=True)
 
-    login.add_argument('-t', '--token',
+    auth.add_argument('-t', '--token',
                        help="Provide an admin-token to access the Matrix API. " +
                        "--token and --login are mutually exclusive.",
                        type=str)
-    login.add_argument('-l', '--login',
+    auth.add_argument('-l', '--login',
                        help="Provide a username and password to be used in authentication process. " +
                        "--token and --login are mutually exclusive.",
                        nargs=2, type=str)
@@ -42,8 +42,7 @@ def create_parser() -> argparse.ArgumentParser:
                         "Therefore the higher the timestamp the more recent the activity",
                         default=False, action='store_true', required=False)
     parser.add_argument('-d', '--debug',
-                        help="Debug mode; will print more verbose debug "
-                             "output",
+                        help="Debug mode; will print more verbose debug output.",
                         default=False, action='store_true', required=False)
 
     return parser
@@ -86,7 +85,6 @@ def get_users(server: str, headers: dict) -> dict:
     # Fun fact: requests apparently uses logging for debug purposes.
     # Creating a logging object and setting its level to DEBUG will also
     # affect request debug output
-    logger.debug("\n")
     response = rq.get(url=url,headers=headers)
     logger.debug("\n")
 
@@ -151,10 +149,8 @@ def get_users(server: str, headers: dict) -> dict:
 
         # add a users most recent time stamp to their dictionary
         user['last_seen_ts'] = most_recent_ts
-    
-    logger.debug(user_dict.keys())
 
-    return user_dict['users']
+    return user_resp['users']
 
 
 def get_access_token(server: str, username: str, password: str) -> str:
@@ -179,13 +175,12 @@ def get_access_token(server: str, username: str, password: str) -> str:
     body = {'type': "m.login.password", 'user': username, 'password': password}
     logger.debug("login body:\t\t" + str(body))
 
-    logger.debug("\n")
     response = rq.post(url=url,
                       data=json.dumps(body))    # rq.request should be able to serialize a dict into JSON
                                                 # but apparently the API cannot handle that:
                                                 # {'errcode': 'M_NOT_JSON', 'error': 'Content not JSON.'}
                                                 # That's why I use json.dumps() here.
-    logger.debug("\n")
+    logger.debug("")
 
     check_response(response)
 
@@ -204,9 +199,7 @@ def create_request_header(token: str) -> dict:
         Input: token: str
         Return: dict[str, str]
     """
-
     headers = {"Authorization": f"Bearer {token}"}
-
     return headers
 
 
@@ -220,9 +213,7 @@ def main() -> None:
     logger.debug("Server:\t\t\t" + str(args.server))
 
     if args.login:
-        args.token = get_access_token(server=args.server,
-                                      username=args.login[0],
-                                      password=args.login[1])
+        args.token = get_access_token(server=args.server, username=args.login[0], password=args.login[1])
 
     logger.debug("processed token:\t" + str(args.token))
 
@@ -236,11 +227,11 @@ def main() -> None:
     matrix_users.sort(key=lambda x: x.get('last_seen_ts', 0))
 
     # This is the actual output part
-    header = "{0:40} last seen on\t{1:19} UTC".format("<Username>", "YYYY-MM-DD HH-MM-SS")
+    header = "{0:40} last seen on\t{1:20} UTC".format("<Username>", "YYYY-MM-DD hh-mm-ss")
     print(header)
 
     line = ""
-    for _ in header:
+    for _ in range(len(header)):
         line += '-'
     print(line)
 
@@ -250,7 +241,7 @@ def main() -> None:
         # Division by 1000 bc timestamp is given in miliseconds but datetime works with seconds
         datestr = dt.utcfromtimestamp(user.get('last_seen_ts', 0) / 1000).strftime('%Y-%m-%d %H:%M:%S')
 
-        print("{0:40} last seen on\t{1:19} UTC".format(username, datestr))
+        print("{0:40} last seen on\t{1:20} UTC".format(username, datestr))
 
 
 if __name__ == "__main__":
