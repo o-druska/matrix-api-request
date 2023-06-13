@@ -36,7 +36,7 @@ def create_parser() -> argparse.ArgumentParser:
     parser.add_argument('-s', '--server',
                         help="Provide the home address of your matrix server.",
                         required=True, type=str)
-    parser.add_argument('-a', '--ascending',
+    parser.add_argument('-r', '--reverse',
                         help="List the accounts in descending order => most recently online first. " +
                         "The sorting criteria is a timestamp corresponding to a date in milliseconds after the unix epoch. " +
                         "Therefore the higher the timestamp the more recent the activity",
@@ -224,7 +224,7 @@ def main() -> None:
 
     # sorts the accounts by the last_active_ago timestamps
     # default: least recently online to most recently online
-    matrix_users.sort(key=lambda x: x.get('last_seen_ts', 0))
+    matrix_users.sort(key=lambda x: x.get('last_seen_ts', 0), reverse=args.reverse)
 
     # This is the actual output part
     header = "{0:40} last seen on\t{1:20} UTC".format("<Username>", "YYYY-MM-DD hh-mm-ss")
