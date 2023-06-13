@@ -92,30 +92,37 @@ def get_users(server: str, headers: dict) -> dict:
 
     check_response(response)
 
-    user_dict = response.json()
+    user_resp = response.json()
 
-    # TODO: check if dictionary looks as expected
+    # check if dictionary looks as expected
+    try:
+        user_resp['users']
+    except KeyError as k:
+        logger.warning("A KeyError occurred trying to access user information\n" +
+                       "The API JSON response may not look like expected.")
+        logger.error(k)
+        logger.debug(user_resp)
 
-    # TODO: users output is paginated: while next_token: call again with ?from=<next_token>
-    # Dev note: deactivated for debug purposes bc query parameter &from does
-    # not work as intended yet
-    '''
-    while user_dict.get('next_token', None):
-        next_token = user_dict['next_token']
-        url = f"https://{server}/_synapse/admin/v2/users&from={next_token}"
+    users = user_resp['users']
 
-        logger.debug("\n")
-        response = rq.get(url=url,headers=headers)
-        logger.debug("\n")
+    # users output is paginated
+    # next_token (integer) specifies the page from which to call again
+    # keep calling until no next_token is returned
+    while user_resp.get('next_token', None):
+        next_token = user_resp['next_token']
+        logger.debug(next_token)
+
+        url = f"https://{server}/_synapse/admin/v2/users?from={next_token}"
+
+        response = rq.get(url=url, headers=headers)
+        logger.debug("")
 
         check_response(response)
 
-        next_dict = response.json()
+        user_resp = response.json()
 
-        # ** unpacks a dictionary similar to how * unpacks an iterable
-        # merge the new users into the existing dict
-        user_dict['users'] = { **user_dict['users'] , **next_dict['users'] }
-    '''
+        # user_resp['users'] is a list of dictionaries. One dict for each user.
+        users = [ *users , *user_resp['users'] ]
 
     for user in user_dict['users']: # get device information for each user/account
         url = f"https://{server}/_synapse/admin/v2/users/{user['name']}/devices"
