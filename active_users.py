@@ -184,11 +184,12 @@ def get_access_token(server: str, username: str, password: str) -> str:
 
     check_response(response)
 
-    # TODO: check, if returning dictionary looks like we expect it to.
-
+    # check, if returning dictionary looks like we expect it to.
     try:
         return response.json()['access_token']
     except KeyError as k:
+        logger.error("Was not able to retrieve an access token via API.\n" +
+                     "Returning None.")
         logger.error(k)
 
 
