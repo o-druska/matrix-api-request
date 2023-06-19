@@ -1,4 +1,5 @@
 # Oskar Druska, 2023
+from typing import Union
 
 import requests as rq
 import logging
@@ -25,24 +26,24 @@ def create_parser() -> argparse.ArgumentParser:
     auth = parser.add_mutually_exclusive_group(required=True)
 
     auth.add_argument('-t', '--token',
-                       help="Provide an admin-token to access the Matrix API. " +
-                       "--token and --login are mutually exclusive.",
-                       type=str)
+                      help="Provide an admin-token to access the Matrix API. " +
+                           "--token and --login are mutually exclusive.",
+                      type=str)
     auth.add_argument('-l', '--login',
-                       help="Provide a username and password to be used in authentication process. " +
-                       "--token and --login are mutually exclusive.",
-                       nargs=2, type=str)
+                      help="Provide a username and password to be used in authentication process. " +
+                           "--token and --login are mutually exclusive.",
+                      nargs=2, type=str)
 
     parser.add_argument('-s', '--server',
                         help="Provide the home address of your matrix server.",
                         required=True, type=str)
     parser.add_argument('-r', '--reverse',
                         help="List the accounts in descending order => most recently online first. " +
-                        "The sorting criteria is a timestamp corresponding to a date in milliseconds after the unix epoch. " +
-                        "Therefore the higher the timestamp the more recent the activity",
+                             "The sorting criteria is a timestamp corresponding to a date in milliseconds after the unix epoch. " +
+                             "Therefore the higher the timestamp the more recent the activity",
                         default=False, action='store_true', required=False)
     parser.add_argument('-d', '--debug',
-                        help="Debug mode; will print more verbose debug output.",
+                        help="Print debug output.",
                         default=False, action='store_true', required=False)
 
     return parser
@@ -61,9 +62,9 @@ def check_response(response: rq.Response) -> None:
     """
     if response.status_code != 200:
         logger.warning("Warning:\tThe API request failed..\n" +
-                     f"status code:\t{response.status_code}\n" +
-                     f"JSON response:\t{response.json()}\n" +
-                     f"URL:\t\t{response.url}")
+                       f"status code:\t{response.status_code}\n" +
+                       f"JSON response:\t{response.json()}\n" +
+                       f"URL:\t\t{response.url}")
         exit(1)
 
 
@@ -71,11 +72,11 @@ def get_users(server: str, headers: dict) -> list[dict]:
     """
     Uses requests to call Matrix API to get a list of registered user objects
     including a last-seen timestamp in unix-milliseconds.
-    The timestamp marks the date and time after the unix epoch on which
-    the session has been most recently active.
+    The timestamp marks the date and time after the unix epoch of the session
+    on which the user has been most recently active.
         Input:  str: server
                 dict: data
-        Return: dict
+        Return: list[dict]
     """
 
     url = f"https://{server}/_synapse/admin/v2/users"
@@ -85,7 +86,7 @@ def get_users(server: str, headers: dict) -> list[dict]:
     # Fun fact: requests apparently uses logging for debug purposes.
     # Creating a logging object and setting its level to DEBUG will also
     # affect request debug output
-    response = rq.get(url=url,headers=headers)
+    response = rq.get(url=url, headers=headers)
     logger.debug("\n")
 
     check_response(response)
@@ -120,7 +121,7 @@ def get_users(server: str, headers: dict) -> list[dict]:
         user_resp = response.json()
 
         # user_resp['users'] is a list of dictionaries. One dict for each user.
-        users = [ *users , *user_resp['users'] ]
+        users = [*users, *user_resp['users']]
 
     user_resp['users'] = users
 
@@ -153,14 +154,14 @@ def get_users(server: str, headers: dict) -> list[dict]:
     return user_resp['users']
 
 
-def get_access_token(server: str, username: str, password: str) -> str:
+def get_access_token(server: str, username: str, password: str) -> Union[str, None]:
     """
     Takes a matrix homeserver and (username, password) to retrieve an access token via API call.
     The API provides login via token too, but that did not work as expected
     and usr_pwd login is totally sufficient for this purpose.
     m.login.password presents the login method to the API
     and will therefore be hardcoded in here.
-        Input:  
+        Input:
                 str: server
                 str: username
                 str: password
@@ -176,7 +177,7 @@ def get_access_token(server: str, username: str, password: str) -> str:
     logger.debug("login body:\t\t" + str(body))
 
     response = rq.post(url=url,
-                      data=json.dumps(body))    # rq.request should be able to serialize a dict into JSON
+                       data=json.dumps(body))   # rq.request should be able to serialize a dict into JSON
                                                 # but apparently the API cannot handle that:
                                                 # {'errcode': 'M_NOT_JSON', 'error': 'Content not JSON.'}
                                                 # That's why I use json.dumps() here.
@@ -188,9 +189,9 @@ def get_access_token(server: str, username: str, password: str) -> str:
     try:
         return response.json()['access_token']
     except KeyError as k:
-        logger.error("Was not able to retrieve an access token via API.\n" +
-                     "Returning None.")
+        logger.error("Was not able to retrieve an access token via API.\n")
         logger.error(k)
+        exit(1)
 
 
 def create_request_header(token: str) -> dict:
