@@ -29,10 +29,11 @@ def create_parser() -> argparse.ArgumentParser:
                       help="Provide an admin-token to access the Matrix API. " +
                            "--token and --login are mutually exclusive.",
                       type=str)
-    auth.add_argument('-l', '--login',
-                      help="Provide a username and password to be used in authentication process. " +
-                           "--token and --login are mutually exclusive.",
-                      nargs=2, type=str)
+    auth.add_argument('-u', '--username', type=str,
+                      help="Provide a username to auth with. If no password is provided, you'll be prompted for it.")
+
+    parser.add_argument('-p', '--password', type=str,
+                      help="Provide a password to auth. If no username is provided, programm will fail.")
 
     parser.add_argument('-s', '--server',
                         help="Provide the home address of your matrix server.",
@@ -214,8 +215,14 @@ def main() -> None:
     logger.debug("parsed args:\t\t" + str(args))
     logger.debug("Server:\t\t\t" + str(args.server))
 
-    if args.login:
-        args.token = get_access_token(server=args.server, username=args.login[0], password=args.login[1])
+    if not args.token:
+        if args.username:
+            if not args.password:
+                args.password = input(f"Please provide a password for @{args.username}: ")
+            args.token = get_access_token(server=args.server, username=args.username, password=args.password)
+        else:
+            logger.error("You have to provide at least a username or token to auth with.")
+            exit(1)
 
     logger.debug("processed token:\t" + str(args.token))
 
