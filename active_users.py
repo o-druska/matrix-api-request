@@ -33,7 +33,7 @@ def create_parser() -> argparse.ArgumentParser:
                       help="Provide a username to auth with. If no password is provided, you'll be prompted for it.")
 
     parser.add_argument('-p', '--password', type=str,
-                      help="Provide a password to auth. If no username is provided, programm will fail.")
+                        help="Provide a password to auth. If no username is provided, programm will fail.")
 
     parser.add_argument('-s', '--server',
                         help="Provide the home address of your matrix server.",
@@ -235,11 +235,17 @@ def main() -> None:
     # default: least recently online to most recently online
     matrix_users.sort(key=lambda x: x.get('last_seen_ts', 0), reverse=args.reverse)
 
-    # This is the actual output part
-    header = "{0:40} last seen on\t{1:20} UTC".format("<Username>", "YYYY-MM-DD hh-mm-ss")
-    print(header)
+    # ------------------------------------------------------------------------------------------------------------------
+    # This is the actual output part                                                                                   |
+    # ------------------------------------------------------------------------------------------------------------------
+    header = "{0:40}\t{1:20}\t{2:20}".format("<Username>", "last seen on", "created on")
+    print("\n" + str(header))
 
-    line = ""
+    # Dev note: header consists of 82 chars. 80 from the format strings, 2 from the \t.
+    # Haven't found a fully automated way to take the modular size of the \t
+    # into consideration when constructing the seperator line.
+    # Had to manually add 9 dashes.
+    line = "---------"
     for _ in range(len(header)):
         line += '-'
     print(line)
@@ -248,9 +254,10 @@ def main() -> None:
         username = user.get('name', None)
 
         # Division by 1000 bc timestamp is given in miliseconds but datetime works with seconds
-        datestr = dt.utcfromtimestamp(user.get('last_seen_ts', 0) / 1000).strftime('%Y-%m-%d %H:%M:%S')
+        lastseen_date = dt.utcfromtimestamp(user.get('last_seen_ts', 0) / 1000).strftime('%Y-%m-%d %H:%M:%S')
+        creation_date = dt.utcfromtimestamp(user.get('creation_ts', 0) / 1000).strftime('%Y-%m-%d %H:%M:%S')
 
-        print("{0:40} last seen on\t{1:20} UTC".format(username, datestr))
+        print("{0:40}\t{1:20}\t{2:20}".format(username, lastseen_date, creation_date))
 
 
 if __name__ == "__main__":
