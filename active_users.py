@@ -102,6 +102,7 @@ def get_users(server: str, headers: dict) -> list[dict]:
                        "The API JSON response may not look like expected.")
         logger.error(k)
         logger.debug(user_resp)
+        exit(1)
 
     users = user_resp['users']
 
