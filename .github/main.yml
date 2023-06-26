@@ -1,0 +1,37 @@
+# This is a basic workflow to help you get started with Actions
+
+name: matrix_api_access python linting via flake8
+
+# Controls when the workflow will run
+on:
+  # Triggers the workflow on push or pull request events but only for the main branch
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version: ['3.6', '3.7', '3.8', '3.9', '3.10', 'pypy3']
+        
+    steps:
+    - uses: actions/checkout@v3
+    
+    - name: git config
+      run: |
+        git config --global user.email "o.druska@fz-juelich.de"
+        git config --global user.name "Oskar Druska"
+
+    - name: Install dependencies
+      run: |
+        pip install flake8 pyre-check
+
+    - name: flake8 linting
+      run: |
+        flake8 $(find . -type f -name "*.py")
+    - name: pyre-check type checking
+      run: |
+        pyre check $(find . -type f -name "*.py")
